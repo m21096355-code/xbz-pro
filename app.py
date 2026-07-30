@@ -8,7 +8,7 @@ app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 ADMIN_USER = os.environ.get("ADMIN_USER", "xbz")
 ADMIN_PASS = os.environ.get("ADMIN_PASS", "xbz2026")
 DB = "xbz.db"
-VERSION = "1.5.9"
+VERSION = "1.6.0"
 
 def init_db():
     c = sqlite3.connect(DB)
@@ -269,13 +269,12 @@ def share_page(token):
     if not user: db.close(); return "Not Found", 404
     link = build_link(user, user)
     exp = int(user['expiry']+time.time()) if user['expiry'] else 0
-    exp_str = datetime.fromtimestamp(exp).strftime("%Y/%m/%d") if exp else "نامحدود"
+    exp_str = datetime.fromtimestamp(exp).strftime("%Y/%m/%d") if exp else "∞"
     dn = f"{user['down']/1073741824:.2f} GB"
     up = f"{user['up']/1073741824:.2f} GB"
     tn = f"{user['total']/1073741824:.2f} GB" if user['total'] else "∞"
     sub_url = f"{request.host_url}sub/{token}"
     info_url = f"{request.host_url}sub/{token}/info"
-    # QR
     import qrcode, io as _io, base64 as _b64
     qr = qrcode.make(link)
     buf = _io.BytesIO(); qr.save(buf, format='PNG'); buf.seek(0)
@@ -322,69 +321,252 @@ def export_data():
     db.close()
     return jsonify({"inbounds":inbounds,"users":users,"settings":settings,"version":VERSION})
 
-# ─── HTML Templates ─────────────────────────────────────
-CSS_VARS = """
-:root{--bg:#121218;--card:#1a1a24;--border:rgba(255,255,255,0.06);--text:#e0e0e0;
---text2:#888;--text3:#555;--purple:#9c27b0;--purple2:#7b1fa2;--green:#4caf50;
---red:#f44336;--blue:#2196f3;--orange:#ff9800;--cyan:#00bcd4}
+# ═══════════════════════════════════════════════════════════
+# ═══════ HTML TEMPLATES (Marzban Style) ═══════════════════
+# ═══════════════════════════════════════════════════════════
+
+COMMON_CSS = """
+:root{--bg:#181825;--bg2:#11111b;--card:#1e1e2e;--card2:#252536;
+--border:rgba(255,255,255,0.06);--border2:rgba(255,255,255,0.1);
+--text:#cdd6f4;--text2:#a6adc8;--text3:#6c7086;
+--purple:#cba6f7;--purple2:#b4befe;--pink:#f5c2e7;--pink2:#f38ba8;
+--green:#a6e3a1;--green2:#94e2d5;--red:#f38ba8;--orange:#fab387;
+--blue:#89b4fa;--cyan:#94e2d5;--yellow:#f9e2af;--mauve:#cba6f7;
+--overlay:rgba(0,0,0,0.6);--radius:12px;--radius2:16px;--radius3:20px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter',system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;-webkit-font-smoothing:antialiased}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-track{background:transparent}::-webkit-scrollbar-thumb{background:var(--text3);border-radius:3px}
+a{color:var(--purple);text-decoration:none;transition:0.2s}a:hover{color:var(--pink)}
+button{font-family:inherit;cursor:pointer}
+input,select{font-family:inherit}
 """
 
-LOGIN_HTML = f"""<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XBZ PRO</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>{CSS_VARS}*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:'Inter',sans-serif;background:var(--bg);min-height:100vh;display:flex;align-items:center;justify-content:center;overflow:hidden}}body::before{{content:'';position:fixed;top:-50%;left:-50%;width:200%;height:200%;background:radial-gradient(ellipse at 30% 20%,rgba(156,39,176,0.12),transparent 50%),radial-gradient(ellipse at 70% 80%,rgba(123,31,162,0.08),transparent 50%);animation:bg 8s ease-in-out infinite alternate}}@keyframes bg{{0%{{transform:rotate(0deg)}}100%{{transform:rotate(3deg)}}}}.card{{position:relative;z-index:1;background:var(--card);border:1px solid var(--border);border-radius:24px;padding:48px 40px;width:420px;text-align:center}}.logo{{font-size:3.5em;margin-bottom:8px}}.card h1{{color:#fff;font-size:2em;margin-bottom:2px}}.ver{{color:var(--purple);font-size:0.8em;font-weight:600;margin-bottom:4px}}.card .sub{{color:var(--text3);font-size:0.9em;margin-bottom:32px}}.field input{{width:100%;padding:14px 16px;border:1px solid var(--border);border-radius:14px;background:rgba(255,255,255,0.04);color:#fff;font-size:0.95em;transition:0.3s;font-family:inherit;margin-bottom:14px}}.field input:focus{{border-color:var(--purple);outline:none;box-shadow:0 0 20px rgba(156,39,176,0.1)}}.field input::placeholder{{color:#444}}.btn{{width:100%;padding:15px;background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;border-radius:14px;color:#fff;font-size:1.05em;font-weight:700;cursor:pointer;transition:0.3s;font-family:inherit}}.btn:hover{{transform:translateY(-2px);box-shadow:0 8px 30px rgba(156,39,176,0.3)}}.err{{color:var(--red);margin-bottom:16px;font-size:0.85em}}</style></head><body><div class="card"><div class="logo">⚡</div><h1>XBZ PRO</h1><div class="ver">v{VERSION}</div><div class="sub">پنل مدیریت VPN</div>{{% if error %}}<div class="err">{{{{error}}}}</div>{{% endif %}}<form method="POST"><div class="field"><input name="username" placeholder="نام کاربری" required></div><div class="field"><input name="password" type="password" placeholder="رمز عبور" required></div><button type="submit" class="btn">ورود به پنل</button></form></div></body></html>"""
+LOGIN_CSS = COMMON_CSS + """
+body{display:flex;align-items:center;justify-content:center;overflow:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse at 30% 20%,rgba(203,166,247,0.08),transparent 60%),radial-gradient(ellipse at 70% 80%,rgba(245,194,231,0.05),transparent 60%)}
+.login-card{position:relative;z-index:1;background:var(--card);border:1px solid var(--border);border-radius:var(--radius3);padding:48px 40px;width:420px;text-align:center;backdrop-filter:blur(20px)}
+.login-card .icon{font-size:4em;margin-bottom:12px}
+.login-card h1{color:var(--text);font-size:2em;margin-bottom:4px;font-weight:800}
+.login-card .ver{color:var(--mauve);font-size:0.82em;font-weight:700;margin-bottom:4px}
+.login-card .sub{color:var(--text3);font-size:0.9em;margin-bottom:36px}
+.field{margin-bottom:16px;text-align:right}
+.field label{display:block;color:var(--text2);font-size:0.82em;margin-bottom:8px;font-weight:600}
+.field input{width:100%;padding:14px 18px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:0.95em;transition:0.3s}
+.field input:focus{border-color:var(--mauve);outline:none;box-shadow:0 0 0 3px rgba(203,166,247,0.1)}
+.field input::placeholder{color:var(--text3)}
+.btn-login{width:100%;padding:15px;background:linear-gradient(135deg,var(--mauve),var(--pink));border:none;border-radius:var(--radius);color:var(--bg);font-size:1em;font-weight:700;transition:0.3s;margin-top:8px}
+.btn-login:hover{transform:translateY(-2px);box-shadow:0 8px 25px rgba(203,166,247,0.25)}
+.err{color:var(--red);margin-bottom:16px;font-size:0.85em;background:rgba(243,139,168,0.1);padding:10px;border-radius:var(--radius);border:1px solid rgba(243,139,168,0.2)}
+"""
 
-SETTINGS_HTML = f"""<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet"><style>{CSS_VARS}*{{margin:0;padding:0;box-sizing:border-box}}body{{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}}.nav{{background:var(--card);padding:16px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}}.nav h2{{color:var(--purple);font-size:1.3em}}.nav a{{color:var(--text3);text-decoration:none;margin-right:16px;font-size:0.9em;transition:0.2s}}.nav a:hover{{color:var(--purple)}}.ct{{max-width:700px;margin:40px auto;padding:0 24px}}.sec{{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px}}.sec h3{{color:var(--purple);margin-bottom:24px}}.fg{{margin-bottom:16px}}.fg label{{display:block;color:var(--text3);font-size:0.82em;margin-bottom:6px}}.fg input{{width:100%;padding:12px 16px;border:1px solid var(--border);border-radius:12px;background:rgba(255,255,255,0.04);color:#fff;font-size:0.95em;font-family:inherit}}.fg input:focus{{border-color:var(--purple);outline:none}}.btn{{padding:12px 32px;background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;border-radius:12px;color:#fff;font-weight:700;cursor:pointer;font-family:inherit}}.info{{background:rgba(156,39,176,0.08);border:1px solid rgba(156,39,176,0.2);border-radius:12px;padding:16px;margin-top:20px;font-size:0.85em;color:var(--text2);line-height:2}}.info code{{color:var(--purple);background:rgba(156,39,176,0.1);padding:2px 8px;border-radius:6px;font-size:0.9em}}</style></head><body><div class="nav"><h2>⚙️ Settings <span style="color:var(--text3);font-size:0.7em">v{{{{version}}}}</span></h2><div><a href="/">داشبورد</a><a href="/logout">خروج</a></div></div><div class="ct"><div class="sec"><h3>تنظیمات پنل</h3><form method="POST"><div class="fg"><label>نام پنل</label><input name="panel_title" value="{{{{title}}}}"></div><div class="fg"><label>دامنه سرور</label><input name="server_domain" value="{{{{domain}}}}"></div><div class="fg"><label>پورت سرور</label><input name="server_port" value="{{{{port}}}}"></div><div class="fg"><label>مسیر اشتراک</label><input name="sub_path" value="{{{{sub_path}}}}"></div><button type="submit" class="btn">💾 ذخیره</button></form><div class="info"><strong>📌 لینک اشتراک:</strong><br><code>{{{{domain}}}}:{{{{port}}}}{{{{sub_path}}}}/{{{{UUID}}}}</code><br><strong>📌 صفحه اشتراک:</strong><br><code>{{{{domain}}}}:{{{{port}}}}/share/{{{{UUID}}}}</code><br><strong>📌 سازگار با:</strong> v2rayNG, Hiddify, Nekobox, V2Box, Streisand</div></div></div></body></html>"""
+DASH_CSS = COMMON_CSS + """
+.nav{background:var(--bg2);padding:0 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border);height:60px}
+.nav-brand{display:flex;align-items:center;gap:10px}
+.nav-brand h2{color:var(--text);font-size:1.2em;font-weight:800}
+.nav-brand h2 span{color:var(--mauve)}
+.nav-brand .v{color:var(--text3);font-size:0.7em;font-weight:600;background:var(--card);padding:3px 10px;border-radius:20px;border:1px solid var(--border)}
+.nav-links{display:flex;gap:8px;align-items:center}
+.nav-links a{color:var(--text3);padding:8px 16px;border-radius:var(--radius);font-size:0.85em;font-weight:600;transition:0.2s;display:flex;align-items:center;gap:6px}
+.nav-links a:hover{background:var(--card);color:var(--text)}
+.nav-links .btn-logout{color:var(--red)}
+.nav-links .btn-logout:hover{background:rgba(243,139,168,0.1);color:var(--red)}
+.ct{max-width:1280px;margin:28px auto;padding:0 28px}
+.stats{display:grid;grid-template-columns:repeat(5,1fr);gap:16px;margin-bottom:28px}
+.stat{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;position:relative;overflow:hidden}
+.stat::after{content:'';position:absolute;top:0;right:0;width:4px;height:100%;border-radius:0 4px 4px 0}
+.stat.purple::after{background:var(--mauve)}.stat.green::after{background:var(--green)}
+.stat.orange::after{background:var(--orange)}.stat.red::after{background:var(--red)}
+.stat.blue::after{background:var(--blue)}
+.stat .num{font-size:2em;font-weight:800;margin-bottom:4px}
+.stat.purple .num{color:var(--mauve)}.stat.green .num{color:var(--green)}
+.stat.orange .num{color:var(--orange)}.stat.red .num{color:var(--red)}
+.stat.blue .num{color:var(--blue)}
+.stat .label{color:var(--text3);font-size:0.8em;font-weight:600}
+.sec{background:var(--card);border:1px solid var(--border);border-radius:var(--radius3);padding:24px;margin-bottom:24px}
+.sec-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:20px}
+.sec-header h3{color:var(--text);font-size:1.1em;font-weight:700;display:flex;align-items:center;gap:8px}
+.sec-header h3 .emoji{font-size:1.2em}
+table{width:100%;border-collapse:separate;border-spacing:0}
+thead th{padding:12px 14px;text-align:right;font-size:0.72em;font-weight:700;color:var(--text3);text-transform:uppercase;letter-spacing:0.5px;border-bottom:2px solid var(--border);background:var(--bg2);position:sticky;top:0}
+thead th:first-child{border-radius:var(--radius) 0 0 0}thead th:last-child{border-radius:0 var(--radius) 0 0}
+tbody td{padding:12px 14px;font-size:0.85em;border-bottom:1px solid var(--border);transition:0.2s}
+tbody tr:hover{background:rgba(203,166,247,0.03)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:0.75em;font-weight:600}
+.bg{background:rgba(166,227,161,0.12);color:var(--green)}.br{background:rgba(243,139,168,0.12);color:var(--red)}
+.bp{background:rgba(203,166,247,0.12);color:var(--mauve)}.bb{background:rgba(137,180,250,0.12);color:var(--blue)}
+.bo{background:rgba(250,179,135,0.12);color:var(--orange)}
+.btn{padding:6px 14px;border:none;border-radius:8px;font-size:0.78em;font-weight:600;transition:0.2s;display:inline-flex;align-items:center;gap:4px}
+.btn-primary{background:linear-gradient(135deg,var(--mauve),var(--pink));color:var(--bg)}
+.btn-primary:hover{opacity:0.85;transform:translateY(-1px)}
+.btn-info{background:rgba(137,180,250,0.12);color:var(--blue)}.btn-info:hover{background:rgba(137,180,250,0.25)}
+.btn-purple{background:rgba(203,166,247,0.12);color:var(--mauve)}.btn-purple:hover{background:rgba(203,166,247,0.25)}
+.btn-cyan{background:rgba(148,226,213,0.12);color:var(--cyan)}.btn-cyan:hover{background:rgba(148,226,213,0.25)}
+.btn-warning{background:rgba(250,179,135,0.12);color:var(--orange)}.btn-warning:hover{background:rgba(250,179,135,0.25)}
+.btn-danger{background:rgba(243,139,168,0.12);color:var(--red)}.btn-danger:hover{background:rgba(243,139,168,0.25)}
+.btn-success{background:rgba(166,227,161,0.12);color:var(--green)}.btn-success:hover{background:rgba(166,227,161,0.25)}
+.btn-group{display:flex;gap:4px;flex-wrap:nowrap}
+.uuid-text{font-family:'Fira Code',monospace;font-size:0.75em;color:var(--text3);direction:ltr}
+.traffic{font-size:0.78em;color:var(--text2);direction:ltr;text-align:left}
+input,select{padding:10px 14px;border:1px solid var(--border);border-radius:var(--radius);background:var(--bg2);color:var(--text);font-size:0.85em;transition:0.2s}
+input:focus,select:focus{border-color:var(--mauve);outline:none;box-shadow:0 0 0 3px rgba(203,166,247,0.1)}
+select option{background:var(--bg2);color:var(--text)}
+.fr{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
+.cb{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:16px;margin-top:14px;word-break:break-all;font-family:'Fira Code',monospace;font-size:0.8em;color:var(--green);display:none;line-height:1.6}
+.mo{display:none;position:fixed;inset:0;background:var(--overlay);z-index:100;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.mo.show{display:flex}
+.md{background:var(--card);border:1px solid var(--border2);border-radius:var(--radius3);padding:32px;width:540px;max-height:85vh;overflow-y:auto;box-shadow:0 25px 50px rgba(0,0,0,0.3)}
+.md-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:24px}
+.md-header h3{color:var(--text);font-size:1.1em;font-weight:700}
+.md-close{width:36px;height:36px;border-radius:50%;border:none;background:var(--bg2);color:var(--text3);font-size:1.2em;display:flex;align-items:center;justify-content:center;transition:0.2s}
+.md-close:hover{background:rgba(243,139,168,0.15);color:var(--red)}
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--mauve),var(--pink));color:var(--bg);padding:14px 28px;border-radius:var(--radius);font-size:0.9em;font-weight:600;display:none;z-index:200;box-shadow:0 8px 30px rgba(203,166,247,0.3)}
+.info-panel{background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-top:14px;display:none;font-size:0.85em;line-height:2}
+.info-panel .iplbl{color:var(--text3);font-weight:600}.info-panel .ipval{color:var(--cyan);font-weight:600}
+@media(max-width:768px){.stats{grid-template-columns:repeat(2,1fr)}.stat .num{font-size:1.5em}}
+"""
 
-# ─── SHARE PAGE (Marzban Style) ─────────────────────────
-SHARE_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>""" + """{{email}} - {{panel_name}}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>{CSS_VARS}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;padding:16px}.topbar{display:flex;align-items:center;justify-content:space-between;padding:12px 0;margin-bottom:16px}.topbar h2{color:var(--purple);font-size:1.2em}.topbar .close{color:var(--text3);font-size:1.5em;cursor:pointer}.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}.tbl{width:100%}.tbl tr{border-bottom:1px solid var(--border)}.tbl td{padding:12px 0;font-size:0.88em}.tbl td:first-child{color:var(--text3);font-size:0.82em}.tbl td:last-child{color:#fff;font-weight:600;text-align:left}.badge{display:inline-block;padding:4px 12px;border-radius:20px;font-size:0.78em;font-weight:600}.bp{background:rgba(156,39,176,0.2);color:var(--purple)}.bg{background:rgba(76,175,80,0.2);color:var(--green)}.br{background:rgba(244,67,54,0.2);color:var(--red)}.usage-bar{margin:16px 0;padding:16px;background:rgba(255,255,255,0.03);border-radius:12px}.usage-bar .bar{height:8px;background:rgba(255,255,255,0.08);border-radius:4px;overflow:hidden;margin:8px 0}.usage-bar .fill{height:100%;background:linear-gradient(90deg,var(--purple),var(--purple2));border-radius:4px;transition:width 0.5s}.usage-bar .info{display:flex;justify-content:space-between;font-size:0.8em;color:var(--text3)}.sub-section{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:20px;margin-bottom:16px}.sub-section h3{color:var(--purple);margin-bottom:16px;font-size:1em}.sub-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}.sub-row:last-child{border:none}.sub-row .lbl{font-size:0.82em;color:var(--text3)}.sub-row .val{font-size:0.85em;color:#fff;font-weight:600;font-family:monospace;direction:ltr}.sub-row .actions{display:flex;gap:8px}.act-btn{padding:6px 14px;border:none;border-radius:8px;cursor:pointer;font-size:0.78em;font-weight:600;transition:0.2s;font-family:inherit}.act-copy{background:rgba(33,150,243,0.15);color:var(--blue)}.act-copy:hover{background:rgba(33,150,243,0.3)}.act-qr{background:rgba(156,39,176,0.15);color:var(--purple)}.act-qr:hover{background:rgba(156,39,176,0.3)}.copy-all{width:100%;padding:14px;background:linear-gradient(135deg,var(--purple),var(--purple2));border:none;border-radius:12px;color:#fff;font-size:0.95em;font-weight:700;cursor:pointer;font-family:inherit;margin-bottom:8px}.copy-all:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(156,39,176,0.3)}.platform-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}.plat-btn{padding:14px;border:none;border-radius:12px;font-size:0.9em;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;transition:0.2s}.plat-android{background:var(--blue);color:#fff}.plat-ios{background:var(--blue);color:#fff}.plat-btn:hover{opacity:0.85}.qr-box{text-align:center;padding:16px;display:none}.qr-box img{border-radius:12px;border:2px solid var(--border)}.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--purple);color:#fff;padding:12px 24px;border-radius:12px;font-size:0.9em;display:none;z-index:100}</style></head><body>
-<div class="topbar"><h2>⚡ {{panel_name}}</h2><span class="close">✕</span></div>
+LOGIN_HTML = f"""<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>XBZ PRO</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>{LOGIN_CSS}</style></head><body><div class="login-card"><div class="icon">⚡</div><h1>XBZ PRO</h1><div class="ver">v{VERSION}</div><div class="sub">پنل مدیریت VPN</div>{{% if error %}}<div class="err">{{{{error}}}}</div>{{% endif %}}<form method="POST"><div class="field"><label>نام کاربری</label><input name="username" placeholder="نام کاربری" required></div><div class="field"><label>رمز عبور</label><input name="password" type="password" placeholder="رمز عبور" required></div><button type="submit" class="btn-login">ورود به پنل</button></form></div></body></html>"""
 
-<div class="card"><table class="tbl">
-<tr><td>شناسه اشتراک</td><td style="font-size:0.75em;direction:ltr;text-align:left">{{uuid}}</td></tr>
-<tr><td>ایمیل</td><td>{{email}}</td></tr>
-<tr><td>وضعیت</td><td>{% if enable %}<span class="badge bg">فعال</span>{% else %}<span class="badge br">غیرفعال</span>{% endif %}</td></tr>
-<tr><td>دانلود</td><td>{{traffic_str}}</td></tr>
-<tr><td>آپلود</td><td>{{up_str}}</td></tr>
-<tr><td>حجم کل</td><td>{{total_str}}</td></tr>
-<tr><td>تاریخ انقضا</td><td>{{exp_str}}</td></tr>
-<tr><td>پروتکل</td><td><span class="badge bp">{{protocol}}</span></td></tr>
-</table></div>
+SETTINGS_HTML = f"""<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Settings</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>{DASH_CSS}</style></head><body><div class="nav"><div class="nav-brand"><h2>⚡ <span>XBZ PRO</span></h2><span class="v">v{{{{version}}}}</span></div><div class="nav-links"><a href="/">🏠 داشبورد</a><a href="/logout" class="btn-logout">🚪 خروج</a></div></div><div class="ct" style="max-width:700px"><div class="sec"><div class="sec-header"><h3><span class="emoji">⚙️</span> تنظیمات پنل</h3></div><form method="POST"><div class="field"><label>نام پنل</label><input name="panel_title" value="{{{{title}}}}"></div><div class="field"><label>دامنه سرور</label><input name="server_domain" value="{{{{domain}}}}"></div><div class="field"><label>پورت سرور</label><input name="server_port" value="{{{{port}}}}"></div><div class="field"><label>مسیر اشتراک</label><input name="sub_path" value="{{{{sub_path}}}}"></div><button type="submit" class="btn btn-primary" style="width:100%;padding:14px;font-size:1em;margin-top:8px">💾 ذخیره تنظیمات</button></form><div style="margin-top:20px;background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;font-size:0.85em;color:var(--text2);line-height:2.2"><strong style="color:var(--mauve)">📌 آدرس‌های مهم:</strong><br><span style="color:var(--text3)">لینک اشتراک:</span> <code style="color:var(--mauve);background:rgba(203,166,247,0.1);padding:3px 10px;border-radius:6px;font-size:0.9em">{{{{domain}}}}:{{{{port}}}}{{{{sub_path}}}}/{{{{UUID}}}}</code><br><span style="color:var(--text3)">صفحه اشتراک:</span> <code style="color:var(--mauve);background:rgba(203,166,247,0.1);padding:3px 10px;border-radius:6px;font-size:0.9em">{{{{domain}}}}:{{{{port}}}}/share/{{{{UUID}}}}</code><br><span style="color:var(--text3)">سازگار با:</span> v2rayNG · Hiddify · Nekobox · V2Box · Streisand · Sing-box</div></div></div></body></html>"""
 
-<div class="card usage-bar">
-<div class="info"><span>{{traffic_str}} / {{total_str}}</span><span class="badge bp">⚡ {% if total_bytes > 0 %}{{usage_pct}}%{% else %}∞{% endif %}</span></div>
-<div class="bar"><div class="fill" style="width:{{usage_pct}}%"></div></div>
-<div class="info"><span>دانلود: {{traffic_str}}</span><span>آپلود: {{up_str}}</span></div>
+SHARE_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>""" + """{{email}} - {{panel_name}}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>""" + COMMON_CSS + """
+.share-page{max-width:480px;margin:0 auto;padding:20px 16px}
+.share-header{text-align:center;margin-bottom:24px}
+.share-header .icon{font-size:2.5em;margin-bottom:8px}
+.share-header h1{color:var(--text);font-size:1.5em;font-weight:800}
+.share-header .sub{color:var(--text3);font-size:0.9em;margin-top:4px}
+.info-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-bottom:16px}
+.info-card .row{display:flex;justify-content:space-between;align-items:center;padding:12px 0;border-bottom:1px solid var(--border)}
+.info-card .row:last-child{border:none}
+.info-card .row .lbl{color:var(--text3);font-size:0.82em;font-weight:600}
+.info-card .row .val{color:var(--text);font-size:0.88em;font-weight:700;text-align:left}
+.usage-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-bottom:16px}
+.usage-bar{height:8px;background:var(--bg2);border-radius:4px;overflow:hidden;margin:12px 0}
+.usage-fill{height:100%;background:linear-gradient(90deg,var(--mauve),var(--pink));border-radius:4px}
+.usage-info{display:flex;justify-content:space-between;font-size:0.8em;color:var(--text3)}
+.sub-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius2);padding:20px;margin-bottom:16px}
+.sub-card h3{color:var(--text);font-size:1em;font-weight:700;margin-bottom:16px;display:flex;align-items:center;gap:8px}
+.sub-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.sub-row:last-child{border:none}
+.sub-row .info{flex:1;min-width:0}
+.sub-row .lbl{color:var(--text3);font-size:0.75em;font-weight:600;margin-bottom:2px}
+.sub-row .val{font-size:0.78em;color:var(--text2);font-weight:600;font-family:'Fira Code',monospace;direction:ltr;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sub-row .actions{display:flex;gap:6px;margin-right:12px}
+.act-btn{width:36px;height:36px;border-radius:10px;border:none;display:flex;align-items:center;justify-content:center;font-size:1em;transition:0.2s}
+.act-copy{background:rgba(137,180,250,0.12);color:var(--blue)}.act-copy:hover{background:rgba(137,180,250,0.25)}
+.act-qr{background:rgba(203,166,247,0.12);color:var(--mauve)}.act-qr:hover{background:rgba(203,166,247,0.25)}
+.copy-all{width:100%;padding:16px;background:linear-gradient(135deg,var(--mauve),var(--pink));border:none;border-radius:var(--radius);color:var(--bg);font-size:1em;font-weight:700;transition:0.3s}
+.copy-all:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(203,166,247,0.3)}
+.qr-box{text-align:center;padding:20px;display:none}
+.qr-box img{border-radius:var(--radius2);border:2px solid var(--border)}
+.plat-btns{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:16px}
+.plat-btn{padding:16px;border:none;border-radius:var(--radius);font-size:0.9em;font-weight:700;transition:0.2s;display:flex;align-items:center;justify-content:center;gap:8px}
+.plat-android{background:rgba(137,180,250,0.15);color:var(--blue);border:1px solid rgba(137,180,250,0.2)}
+.plat-ios{background:rgba(203,166,247,0.15);color:var(--mauve);border:1px solid rgba(203,166,247,0.2)}
+.plat-btn:hover{opacity:0.85}
+.toast{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:linear-gradient(135deg,var(--mauve),var(--pink));color:var(--bg);padding:14px 28px;border-radius:var(--radius);font-size:0.9em;font-weight:600;display:none;z-index:200;box-shadow:0 8px 30px rgba(203,166,247,0.3)}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:4px 12px;border-radius:20px;font-size:0.75em;font-weight:600}
+.bg{background:rgba(166,227,161,0.12);color:var(--green)}.br{background:rgba(243,139,168,0.12);color:var(--red)}.bp{background:rgba(203,166,247,0.12);color:var(--mauve)}
+</style></head><body>
+<div class="share-page">
+<div class="share-header"><div class="icon">⚡</div><h1>{{panel_name}}</h1><div class="sub">{{email}}</div></div>
+
+<div class="info-card">
+<div class="row"><span class="lbl">شناسه اشتراک</span><span class="val" style="font-size:0.72em;font-family:'Fira Code',monospace;direction:ltr">{{uuid}}</span></div>
+<div class="row"><span class="lbl">ایمیل</span><span class="val">{{email}}</span></div>
+<div class="row"><span class="lbl">وضعیت</span><span class="val">{% if enable %}<span class="badge bg">✅ فعال</span>{% else %}<span class="badge br">❌ غیرفعال</span>{% endif %}</span></div>
+<div class="row"><span class="lbl">پروتکل</span><span class="val"><span class="badge bp">{{protocol}}</span></span></div>
+<div class="row"><span class="lbl">دانلود</span><span class="val">{{traffic_str}}</span></div>
+<div class="row"><span class="lbl">آپلود</span><span class="val">{{up_str}}</span></div>
+<div class="row"><span class="lbl">حجم کل</span><span class="val">{{total_str}}</span></div>
+<div class="row"><span class="lbl">تاریخ انقضا</span><span class="val">{{exp_str}}</span></div>
 </div>
 
-<div class="sub-section">
+<div class="usage-card">
+<div class="usage-info"><span>{{traffic_str}} / {{total_str}}</span><span class="badge bp">⚡ {% if total_bytes > 0 %}{{usage_pct}}%{% else %}∞{% endif %}</span></div>
+<div class="usage-bar"><div class="usage-fill" style="width:{{usage_pct}}%"></div></div>
+</div>
+
+<div class="sub-card">
 <h3>🔗 اطلاعات اشتراک</h3>
-<div class="sub-row"><div><div class="lbl">لینک اشتراک (SUB)</div><div class="val" style="font-size:0.7em">{{sub_url}}</div></div>
-<div class="actions"><button class="act-btn act-copy" onclick="copyT('{{sub_url}}')">📋</button><button class="act-btn act-qr" onclick="showQR()">📱</button></div></div>
-
-<div class="sub-row"><div><div class="lbl">لینک VPN</div><div class="val" style="font-size:0.7em">{{link}}</div></div>
-<div class="actions"><button class="act-btn act-copy" onclick="copyT('{{link}}')">📋</button><button class="act-btn act-qr" onclick="showQR()">📱</button></div></div>
-
-<div class="sub-row"><div><div class="lbl">اطلاعات کاربر (JSON)</div><div class="val" style="font-size:0.7em">{{info_url}}</div></div>
-<div class="actions"><button class="act-btn act-copy" onclick="copyT('{{info_url}}')">📋</button></div></div>
+<div class="sub-row"><div class="info"><div class="lbl">لینک اشتراک (SUB)</div><div class="val">{{sub_url}}</div></div><div class="actions"><button class="act-btn act-copy" onclick="copyT('{{sub_url}}')">📋</button><button class="act-btn act-qr" onclick="showQR()">📱</button></div></div>
+<div class="sub-row"><div class="info"><div class="lbl">لینک VPN</div><div class="val">{{link}}</div></div><div class="actions"><button class="act-btn act-copy" onclick="copyT('{{link}}')">📋</button></div></div>
+<div class="sub-row"><div class="info"><div class="lbl">اطلاعات کاربر</div><div class="val">{{info_url}}</div></div><div class="actions"><button class="act-btn act-copy" onclick="copyT('{{info_url}}')">📋</button></div></div>
 </div>
 
-<button class="copy-all" onclick="copyAll()">📋 کپی همه کانفیگ‌ها</button>
+<button class="copy-all" onclick="copyT('{{link}}')">📋 کپی لینک VPN</button>
 
 <div class="qr-box" id="qrBox"><img src="data:image/png;base64,{{qr_data}}" width="220"></div>
 
-<div class="platform-btns">
-<button class="plat-btn plat-android" onclick="copyT('{{sub_url}}')"><span>🤖</span> Android <span style="font-size:0.7em">v2rayNG / Hiddify</span></button>
-<button class="plat-btn plat-ios" onclick="copyT('{{sub_url}}')"><span>🍎</span> iOS <span style="font-size:0.7em">Streisand / V2Box</span></button>
+<div class="plat-btns">
+<button class="plat-btn plat-android" onclick="copyT('{{sub_url}}')"><span>🤖</span>Android</button>
+<button class="plat-btn plat-ios" onclick="copyT('{{sub_url}}')"><span>🍎</span>iOS</button>
+</div>
+</div>
+<div class="toast" id="toast">✅ کپی شد!</div>
+<script>function copyT(t){navigator.clipboard.writeText(t).then(()=>{var e=document.getElementById('toast');e.style.display='block';setTimeout(()=>e.style.display='none',2000)})}function showQR(){var b=document.getElementById('qrBox');b.style.display=b.style.display==='block'?'none':'block'}</script>
+</body></html>"""
+
+DASH_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>""" + """{{panel_name}} v{{version}}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>""" + DASH_CSS + """</style></head><body>
+<div class="nav"><div class="nav-brand"><h2>⚡ <span>XBZ PRO</span></h2><span class="v">v{{version}}</span></div><div class="nav-links"><a href="/settings">⚙️ تنظیمات</a><a href="/api/export" target="_blank">📦 خروجی</a><a href="/logout" class="btn-logout">🚪 خروج</a></div></div>
+<div class="ct">
+<div class="stats">
+<div class="stat purple"><div class="num">{{total_inbounds}}</div><div class="label">اینباندها</div></div>
+<div class="stat blue"><div class="num">{{total_users}}</div><div class="label">کل کاربران</div></div>
+<div class="stat green"><div class="num">{{active_users}}</div><div class="label">فعال</div></div>
+<div class="stat orange"><div class="num">{{expired_users}}</div><div class="label">منقضی شده</div></div>
+<div class="stat red"><div class="num">{{'%0.1f'|format(total_down/1073741824)}} GB</div><div class="label">دانلود کل</div></div>
 </div>
 
-<div class="toast" id="toast">✅ کپی شد!</div>
-<script>
-function copyT(t){navigator.clipboard.writeText(t).then(()=>showT())}
-function copyAll(){navigator.clipboard.writeText('{{link}}').then(()=>showT())}
-function showQR(){var b=document.getElementById('qrBox');b.style.display=b.style.display==='block'?'none':'block'}
-function showT(){var t=document.getElementById('toast');t.style.display='block';setTimeout(()=>t.style.display='none',2000)}
-</script></body></html>"""
+<div class="sec"><div class="sec-header"><h3><span class="emoji">📡</span> اینباندها</h3><button class="btn btn-primary" onclick="showM('inM')">➕ ایجاد جدید</button></div>
+<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>نام</th><th>پروتکل</th><th>پورت</th><th>Domain</th><th>SNI</th><th>شبکه</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+<tbody>{% for i in inbounds %}<tr><td>{{i.id}}</td><td style="font-weight:700">{{i.name}}</td><td><span class="badge bp">{{i.protocol|upper}}</span></td><td>{{i.port}}</td><td style="font-size:0.78em">{{i.domain}}</td><td style="font-size:0.78em">{{i.sni}}</td><td>{{i.network}}</td><td>{% if i.enable %}<span class="badge bg">فعال</span>{% else %}<span class="badge br">غیرفعال</span>{% endif %}</td><td><div class="btn-group"><button class="btn btn-warning" onclick="togIn({{i.id}})">🔄</button><button class="btn btn-danger" onclick="delIn({{i.id}})">🗑️</button></div></td></tr>{% endfor %}</tbody></table></div></div>
 
-# ─── DASHBOARD ──────────────────────────────────────────
-DASH_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>""" + """{{panel_name}} v{{version}}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet"><style>{CSS_VARS}*{margin:0;padding:0;box-sizing:border-box}body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);min-height:100vh}.nav{background:var(--card);padding:14px 32px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--border)}.nav h2{color:var(--purple);font-size:1.3em}.nav a{color:var(--text3);text-decoration:none;margin-right:16px;font-size:0.88em;transition:0.2s}.nav a:hover{color:var(--purple)}.ct{max-width:1200px;margin:24px auto;padding:0 24px}.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:14px;margin-bottom:24px}.stat{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;text-align:center}.stat .num{font-size:1.7em;font-weight:800;background:linear-gradient(135deg,var(--purple),var(--purple2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}.stat .label{color:var(--text3);font-size:0.78em;margin-top:4px}.sec{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:24px;margin-bottom:20px}.sec h3{color:var(--purple);margin-bottom:16px;font-size:1.05em}table{width:100%;border-collapse:collapse}th,td{padding:9px 10px;text-align:right;border-bottom:1px solid var(--border);font-size:0.8em}th{color:var(--text3);font-weight:600;font-size:0.72em;text-transform:uppercase;letter-spacing:0.5px}.badge{display:inline-block;padding:3px 10px;border-radius:8px;font-size:0.72em;font-weight:600}.bg{background:rgba(76,175,80,0.15);color:var(--green)}.br{background:rgba(244,67,54,0.15);color:var(--red)}.bp{background:rgba(156,39,176,0.15);color:var(--purple)}.btn{padding:5px 12px;border:none;border-radius:8px;cursor:pointer;font-size:0.75em;margin:1px;transition:0.2s;font-family:inherit}.ba{background:linear-gradient(135deg,var(--purple),var(--purple2));color:#fff}.ba:hover{opacity:0.85}.bd{background:rgba(244,67,54,0.15);color:var(--red)}.bd:hover{background:rgba(244,67,54,0.3)}.bl{background:rgba(33,150,243,0.15);color:var(--blue)}.bl:hover{background:rgba(33,150,243,0.3)}.bt{background:rgba(255,193,7,0.15);color:var(--orange)}.bsh{background:rgba(156,39,176,0.12);color:var(--purple)}.bsh:hover{background:rgba(156,39,176,0.25)}.binfo{background:rgba(0,188,212,0.12);color:var(--cyan)}.binfo:hover{background:rgba(0,188,212,0.25)}input,select{padding:7px 11px;border:1px solid var(--border);border-radius:10px;background:rgba(255,255,255,0.04);color:#fff;font-size:0.82em;margin:3px;font-family:inherit}input:focus,select:focus{border-color:var(--purple);outline:none}select option{background:#1a1a2e;color:#fff}.fr{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}.cb{background:rgba(76,175,80,0.05);border:1px solid rgba(76,175,80,0.2);border-radius:12px;padding:14px;margin-top:10px;word-break:break-all;font-family:monospace;font-size:0.78em;color:var(--green);display:none}.uuid-text{font-family:monospace;font-size:0.7em;color:var(--text3)}.traffic{font-size:0.73em;color:var(--text2)}.mo{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:100;align-items:center;justify-content:center}.mo.show{display:flex}.md{background:var(--card);border:1px solid var(--border);border-radius:20px;padding:32px;width:520px;max-height:85vh;overflow-y:auto}.md h3{color:var(--purple);margin-bottom:20px}.md .cl{float:left;cursor:pointer;color:var(--text3);font-size:1.2em;transition:0.2s}.md .cl:hover{color:var(--red)}.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:var(--purple);color:#fff;padding:12px 24px;border-radius:12px;font-size:0.9em;display:none;z-index:200}.info-panel{background:rgba(0,188,212,0.05);border:1px solid rgba(0,188,212,0.15);border-radius:12px;padding:16px;margin-top:10px;display:none;font-size:0.82em;line-height:1.8}.info-panel .iplbl{color:var(--text3)}.info-panel .ipval{color:var(--cyan);font-weight:600}</style></head><body><div class="nav"><h2>⚡ {{panel_name}} <span style="color:var(--text3);font-size:0.6em">v{{version}}</span></h2><div><a href="/settings">⚙️ تنظیمات</a><a href="/api/export" target="_blank">📦 خروجی</a><a href="/logout">خروج</a></div></div><div class="ct"><div class="stats"><div class="stat"><div class="num">{{total_inbounds}}</div><div class="label">اینباند</div></div><div class="stat"><div class="num">{{total_users}}</div><div class="label">کل کاربران</div></div><div class="stat"><div class="num">{{active_users}}</div><div class="label">فعال</div></div><div class="stat"><div class="num">{{expired_users}}</div><div class="label">منقضی</div></div><div class="stat"><div class="num">{{'%0.1f'|format(total_down/1073741824)}} GB</div><div class="label">دانلود کل</div></div></div><div class="sec"><h3>📡 اینباندها</h3><button class="btn ba" onclick="showM('inM')" style="margin-bottom:14px">➕ اینباند جدید</button><table><tr><th>#</th><th>نام</th><th>پروتکل</th><th>پورت</th><th>Domain</th><th>SNI</th><th>شبکه</th><th>وضعیت</th><th>عملیات</th></tr>{% for i in inbounds %}<tr><td>{{i.id}}</td><td style="font-weight:600">{{i.name}}</td><td><span class="badge bp">{{i.protocol|upper}}</span></td><td>{{i.port}}</td><td>{{i.domain}}</td><td>{{i.sni}}</td><td>{{i.network}}</td><td>{% if i.enable %}<span class="badge bg">فعال</span>{% else %}<span class="badge br">غیرفعال</span>{% endif %}</td><td><button class="btn bt" onclick="togIn({{i.id}})">🔄</button><button class="btn bd" onclick="delIn({{i.id}})">🗑️</button></td></tr>{% endfor %}</table></div><div class="sec"><h3>👤 کاربران</h3><div class="fr" style="margin-bottom:14px"><button class="btn ba" onclick="showM('usM')">➕ کاربر جدید</button><button class="btn ba" onclick="showM('batchM')" style="background:linear-gradient(135deg,var(--cyan),var(--purple))">📦 ساخت گروهی</button></div><table><tr><th>#</th><th>نام</th><th>UUID</th><th>اینباند</th><th>ترافیک</th><th>انقضا</th><th>وضعیت</th><th>عملیات</th></tr>{% for u in users %}<tr><td>{{u.id}}</td><td style="font-weight:600">{{u.email}}</td><td class="uuid-text">{{u.uuid[:16]}}...</td><td>{{u.inb_name or '-'}} <span class="badge bp" style="font-size:0.6em">{{u.inb_proto or ''}}</span></td><td class="traffic">{{'%0.2f'|format(u.up/1073741824)}}↑ / {{'%0.2f'|format(u.down/1073741824)}}↓ GB</td><td class="traffic">{{u.expiry//86400}} روز</td><td>{% if u.enable %}<span class="badge bg">فعال</span>{% else %}<span class="badge br">غیرفعال</span>{% endif %}</td><td><button class="btn bl" onclick="getL({{u.id}})">🔗 لینک</button><button class="btn bsh" onclick="shareP('{{u.uuid}}')">👁️ صفحه</button><button class="btn binfo" onclick="showInfo({{u.id}})">📊 اطلاعات</button><button class="btn bt" onclick="togU({{u.id}})">🔄</button><button class="btn bd" onclick="delU({{u.id}})">🗑️</button></td></tr>{% endfor %}</table><div id="lbox" class="cb"></div><div id="infoPanel" class="info-panel"></div></div></div><div class="mo" id="inM"><div class="md"><span class="cl" onclick="hideM('inM')">✕</span><h3>➕ اینباند جدید</h3><div class="fr"><input id="i-name" placeholder="نام" value="VLESS-NL" style="width:140px"><select id="i-proto"><option value="vless">VLESS</option><option value="vmess">VMess</option><option value="trojan">Trojan</option></select><input id="i-port" placeholder="پورت" value="443" type="number" style="width:65px"></div><div class="fr"><input id="i-domain" placeholder="Domain" style="width:230px"><input id="i-sni" placeholder="SNI" style="width:180px"></div><div class="fr"><input id="i-host" placeholder="Host" style="width:180px"><input id="i-path" placeholder="Path" value="/ws" style="width:90px"></div><div class="fr"><select id="i-net"><option value="ws">WebSocket</option><option value="grpc">gRPC</option><option value="tcp">TCP</option></select><select id="i-sec"><option value="none">None</option><option value="tls">TLS</option></select><button class="btn ba" onclick="addIn()">ذخیره</button></div></div></div><div class="mo" id="usM"><div class="md"><span class="cl" onclick="hideM('usM')">✕</span><h3>➕ کاربر جدید</h3><div class="fr"><input id="u-email" placeholder="نام کاربری" style="width:200px"></div><div class="fr"><select id="u-inbound" style="width:100%">{% for i in inbounds %}<option value="{{i.id}}">{{i.name}} ({{i.protocol}}:{{i.port}})</option>{% endfor %}</select></div><div class="fr"><input id="u-exp" placeholder="روز" type="number" value="30" style="width:70px"><input id="u-total" placeholder="GB" type="number" value="0" style="width:80px"><input id="u-limitip" placeholder="محدودیت IP" type="number" value="0" style="width:80px"></div><div class="fr"><input id="u-tgid" placeholder="Telegram ID" style="width:150px"><input id="u-comment" placeholder="توضیحات" style="width:170px"></div><div class="fr"><button class="btn ba" onclick="addU()">ذخیره</button></div></div></div><div class="mo" id="batchM"><div class="md"><span class="cl" onclick="hideM('batchM')">✕</span><h3>📦 ساخت گروهی کاربر</h3><div class="fr"><input id="b-count" placeholder="تعداد" type="number" value="10" style="width:80px"><input id="b-prefix" placeholder="پیشوند نام" value="user" style="width:120px"></div><div class="fr"><select id="b-inbound" style="width:100%">{% for i in inbounds %}<option value="{{i.id}}">{{i.name}} ({{i.protocol}}:{{i.port}})</option>{% endfor %}</select></div><div class="fr"><input id="b-exp" placeholder="روز" type="number" value="30" style="width:70px"><input id="b-total" placeholder="GB" type="number" value="0" style="width:80px"></div><div class="fr"><button class="btn ba" onclick="batchAdd()">📦 ساختن</button></div><div id="batchResult" style="margin-top:12px;font-size:0.82em;color:var(--green)"></div></div></div><div class="toast" id="toast">✅ کپی شد!</div><script>function showM(id){document.getElementById(id).classList.add('show')}function hideM(id){document.getElementById(id).classList.remove('show')}function g(id){return document.getElementById(id).value}function toast(){var t=document.getElementById('toast');t.style.display='block';setTimeout(()=>t.style.display='none',2000)}function addIn(){fetch("/api/inbound/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:g("i-name"),protocol:g("i-proto"),port:g("i-port"),domain:g("i-domain"),sni:g("i-sni"),host:g("i-host"),path:g("i-path"),network:g("i-net"),security:g("i-sec")})}).then(r=>r.json()).then(d=>{if(d.success)location.reload()})}function delIn(id){if(confirm("حذف شود؟"))fetch("/api/inbound/delete/"+id,{method:"POST"}).then(()=>location.reload())}function togIn(id){fetch("/api/inbound/toggle/"+id,{method:"POST"}).then(()=>location.reload())}function addU(){fetch("/api/user/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:g("u-email"),inbound_id:g("u-inbound"),expiry:g("u-exp"),total:g("u-total"),limit_ip:g("u-limitip"),tg_id:g("u-tgid"),comment:g("u-comment")})}).then(r=>r.json()).then(d=>{if(d.success)location.reload()})}function delU(id){if(confirm("حذف شود؟"))fetch("/api/user/delete/"+id,{method:"POST"}).then(()=>location.reload())}function togU(id){fetch("/api/user/toggle/"+id,{method:"POST"}).then(()=>location.reload())}function getL(id){fetch("/api/link/"+id).then(r=>r.json()).then(d=>{var b=document.getElementById("lbox");b.style.display="block";b.innerHTML="<strong>🔗 لینک VPN:</strong><br>"+d.link+"<br><br><strong>📋 لینک اشتراک:</strong><br>"+window.location.origin+"/sub/"+d.uuid+"<br><br><strong>📊 اطلاعات:</strong><br>"+window.location.origin+"/sub/"+d.uuid+"/info";navigator.clipboard.writeText(d.link||"").then(()=>toast())})}function shareP(uuid){window.open("/share/"+uuid,"_blank")}function showInfo(id){fetch("/api/user/info/"+id).then(r=>r.json()).then(d=>{var p=document.getElementById("infoPanel");p.style.display="block";p.innerHTML="<strong>📊 اطلاعات کاربر:</strong><br><span class='iplbl'>نام:</span> <span class='ipval'>"+d.email+"</span><br><span class='iplbl'>UUID:</span> <span class='ipval'>"+d.uuid+"</span><br><span class='iplbl'>پروتکل:</span> <span class='ipval'>"+d.protocol+"</span><br><span class='iplbl'>دامنه:</span> <span class='ipval'>"+d.domain+"</span><br><span class='iplbl'>آپلود:</span> <span class='ipval'>"+d.traffic_up+"</span><br><span class='iplbl'>دانلود:</span> <span class='ipval'>"+d.traffic_down+"</span><br><span class='iplbl'>حجم کل:</span> <span class='ipval'>"+d.traffic_total+"</span><br><span class='iplbl'>انقضا:</span> <span class='ipval'>"+d.expiry_date+"</span><br><span class='iplbl'>آخرین ورود:</span> <span class='ipval'>"+(d.last_login||'هیچوقت')+"</span><br><span class='iplbl'>لینک ساب:</span> <span class='ipval'>"+window.location.origin+"/sub/"+d.uuid+"</span>";window.scrollTo({top:p.offsetTop-100,behavior:'smooth'})})}function batchAdd(){fetch("/api/user/batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({count:g("b-count"),prefix:g("b-prefix"),inbound_id:g("b-inbound"),expiry:g("b-exp"),total:g("b-total")})}).then(r=>r.json()).then(d=>{if(d.success){var r=document.getElementById("batchResult");r.innerHTML="✅ "+d.count+" کاربر ساخته شد!<br><br>";d.users.forEach(u=>{r.innerHTML+="<code>"+u.email+"</code> → <code style='color:var(--purple)'>"+u.uuid+"</code><br>"});r.innerHTML+="<br><button class='btn ba' onclick='location.reload()'>بازخوانی</button>"}})}</script></body></html>"""
+<div class="sec"><div class="sec-header"><h3><span class="emoji">👤</span> کاربران</h3><div style="display:flex;gap:8px"><button class="btn btn-primary" onclick="showM('usM')">➕ کاربر جدید</button><button class="btn btn-success" onclick="showM('batchM')">👥 ساخت گروهی</button></div></div>
+<div style="overflow-x:auto"><table><thead><tr><th>#</th><th>نام</th><th>UUID</th><th>اینباند</th><th>ترافیک</th><th>انقضا</th><th>وضعیت</th><th>عملیات</th></tr></thead>
+<tbody>{% for u in users %}<tr><td>{{u.id}}</td><td style="font-weight:700">{{u.email}}</td><td class="uuid-text">{{u.uuid[:16]}}...</td><td>{{u.inb_name or '-'}} <span class="badge bp" style="font-size:0.65em">{{u.inb_proto or ''}}</span></td><td class="traffic">{{'%0.2f'|format(u.up/1073741824)}}↑ / {{'%0.2f'|format(u.down/1073741824)}}↓ GB</td><td class="traffic">{{u.expiry//86400}} روز</td><td>{% if u.enable %}<span class="badge bg">فعال</span>{% else %}<span class="badge br">غیرفعال</span>{% endif %}</td><td><div class="btn-group"><button class="btn btn-info" onclick="getL({{u.id}})" title="لینک">🔗</button><button class="btn btn-purple" onclick="shareP('{{u.uuid}}')" title="صفحه">👁️</button><button class="btn btn-cyan" onclick="showInfo({{u.id}})" title="اطلاعات">📊</button><button class="btn btn-warning" onclick="togU({{u.id}})">🔄</button><button class="btn btn-danger" onclick="delU({{u.id}})">🗑️</button></div></td></tr>{% endfor %}</tbody></table></div>
+<div id="lbox" class="cb"></div><div id="infoPanel" class="info-panel"></div></div>
+</div>
+
+<div class="mo" id="inM"><div class="md"><div class="md-header"><h3>➕ ایجاد اینباند جدید</h3><button class="md-close" onclick="hideM('inM')">✕</button></div>
+<div class="fr"><input id="i-name" placeholder="نام اینباند" value="VLESS-NL" style="flex:1"><select id="i-proto"><option value="vless">VLESS</option><option value="vmess">VMess</option><option value="trojan">Trojan</option></select><input id="i-port" placeholder="پورت" value="443" type="number" style="width:80px"></div>
+<div class="fr"><input id="i-domain" placeholder="Domain" style="flex:1"><input id="i-sni" placeholder="SNI" style="flex:1"></div>
+<div class="fr"><input id="i-host" placeholder="Host" style="flex:1"><input id="i-path" placeholder="Path" value="/ws" style="width:100px"></div>
+<div class="fr"><select id="i-net"><option value="ws">WebSocket</option><option value="grpc">gRPC</option><option value="tcp">TCP</option></select><select id="i-sec"><option value="none">None</option><option value="tls">TLS</option></select><button class="btn btn-primary" onclick="addIn()" style="padding:10px 24px">ذخیره</button></div></div></div>
+
+<div class="mo" id="usM"><div class="md"><div class="md-header"><h3>➕ کاربر جدید</h3><button class="md-close" onclick="hideM('usM')">✕</button></div>
+<div class="fr"><input id="u-email" placeholder="نام کاربری" style="flex:1"></div>
+<div class="fr"><select id="u-inbound" style="width:100%">{% for i in inbounds %}<option value="{{i.id}}">{{i.name}} ({{i.protocol}}:{{i.port}})</option>{% endfor %}</select></div>
+<div class="fr"><input id="u-exp" placeholder="روز" type="number" value="30" style="width:80px"><input id="u-total" placeholder="GB (0=∞)" type="number" value="0" style="width:100px"><input id="u-limitip" placeholder="محدودیت IP" type="number" value="0" style="width:100px"></div>
+<div class="fr"><input id="u-tgid" placeholder="Telegram ID" style="flex:1"><input id="u-comment" placeholder="توضیحات" style="flex:1"></div>
+<div class="fr"><button class="btn btn-primary" onclick="addU()" style="width:100%;padding:12px">ذخیره کاربر</button></div></div></div>
+
+<div class="mo" id="batchM"><div class="md"><div class="md-header"><h3>👥 ساخت گروهی کاربر</h3><button class="md-close" onclick="hideM('batchM')">✕</button></div>
+<div class="fr"><input id="b-count" placeholder="تعداد" type="number" value="10" style="width:80px"><input id="b-prefix" placeholder="پیشوند نام" value="user" style="width:140px"></div>
+<div class="fr"><select id="b-inbound" style="width:100%">{% for i in inbounds %}<option value="{{i.id}}">{{i.name}} ({{i.protocol}}:{{i.port}})</option>{% endfor %}</select></div>
+<div class="fr"><input id="b-exp" placeholder="روز" type="number" value="30" style="width:80px"><input id="b-total" placeholder="GB" type="number" value="0" style="width:100px"></div>
+<div class="fr"><button class="btn btn-success" onclick="batchAdd()" style="width:100%;padding:12px">👥 ساختن گروهی</button></div>
+<div id="batchResult" style="margin-top:14px;font-size:0.85em;color:var(--green);line-height:2"></div></div></div>
+
+<div class="toast" id="toast">✅ کپی شد!</div>
+
+<script>
+function showM(id){document.getElementById(id).classList.add('show')}
+function hideM(id){document.getElementById(id).classList.remove('show')}
+function g(id){return document.getElementById(id).value}
+function toast(){var t=document.getElementById('toast');t.style.display='block';setTimeout(()=>t.style.display='none',2000)}
+function addIn(){fetch("/api/inbound/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({name:g("i-name"),protocol:g("i-proto"),port:g("i-port"),domain:g("i-domain"),sni:g("i-sni"),host:g("i-host"),path:g("i-path"),network:g("i-net"),security:g("i-sec")})}).then(r=>r.json()).then(d=>{if(d.success)location.reload()})}
+function delIn(id){if(confirm("حذف شود؟"))fetch("/api/inbound/delete/"+id,{method:"POST"}).then(()=>location.reload())}
+function togIn(id){fetch("/api/inbound/toggle/"+id,{method:"POST"}).then(()=>location.reload())}
+function addU(){fetch("/api/user/add",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:g("u-email"),inbound_id:g("u-inbound"),expiry:g("u-exp"),total:g("u-total"),limit_ip:g("u-limitip"),tg_id:g("u-tgid"),comment:g("u-comment")})}).then(r=>r.json()).then(d=>{if(d.success)location.reload()})}
+function delU(id){if(confirm("حذف شود؟"))fetch("/api/user/delete/"+id,{method:"POST"}).then(()=>location.reload())}
+function togU(id){fetch("/api/user/toggle/"+id,{method:"POST"}).then(()=>location.reload())}
+function getL(id){fetch("/api/link/"+id).then(r=>r.json()).then(d=>{var b=document.getElementById("lbox");b.style.display="block";b.innerHTML="<strong style='color:var(--mauve)'>🔗 لینک VPN:</strong><br>"+d.link+"<br><br><strong style='color:var(--mauve)'>📋 لینک اشتراک:</strong><br>"+window.location.origin+"/sub/"+d.uuid+"<br><br><strong style='color:var(--mauve)'>📊 اطلاعات:</strong><br>"+window.location.origin+"/sub/"+d.uuid+"/info";navigator.clipboard.writeText(d.link||"").then(()=>toast())})}
+function shareP(uuid){window.open("/share/"+uuid,"_blank")}
+function showInfo(id){fetch("/api/user/info/"+id).then(r=>r.json()).then(d=>{var p=document.getElementById("infoPanel");p.style.display="block";p.innerHTML="<strong style='color:var(--mauve)'>📊 اطلاعات کاربر:</strong><br><span class='iplbl'>نام:</span> <span class='ipval'>"+d.email+"</span><br><span class='iplbl'>UUID:</span> <span class='ipval'>"+d.uuid+"</span><br><span class='iplbl'>پروتکل:</span> <span class='ipval'>"+d.protocol+"</span><br><span class='iplbl'>دامنه:</span> <span class='ipval'>"+d.domain+"</span><br><span class='iplbl'>آپلود:</span> <span class='ipval'>"+d.traffic_up+"</span><br><span class='iplbl'>دانلود:</span> <span class='ipval'>"+d.traffic_down+"</span><br><span class='iplbl'>حجم کل:</span> <span class='ipval'>"+d.traffic_total+"</span><br><span class='iplbl'>انقضا:</span> <span class='ipval'>"+d.expiry_date+"</span><br><span class='iplbl'>آخرین ورود:</span> <span class='ipval'>"+(d.last_login||'هیچوقت')+"</span><br><span class='iplbl'>لینک ساب:</span> <span class='ipval'>"+window.location.origin+"/sub/"+d.uuid+"</span>";window.scrollTo({top:p.offsetTop-100,behavior:'smooth'})})}
+function batchAdd(){fetch("/api/user/batch",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({count:g("b-count"),prefix:g("b-prefix"),inbound_id:g("b-inbound"),expiry:g("b-exp"),total:g("b-total")})}).then(r=>r.json()).then(d=>{if(d.success){var r=document.getElementById("batchResult");r.innerHTML="✅ "+d.count+" کاربر ساخته شد!<br><br>";d.users.forEach(u=>{r.innerHTML+="<code style='color:var(--text2)'>"+u.email+"</code> → <code style='color:var(--mauve)'>"+u.uuid+"</code><br>"});r.innerHTML+="<br><button class='btn btn-primary' onclick='location.reload()'>بازخوانی</button>"}})}
+</script></body></html>"""
 
 init_db()
 if __name__ == "__main__":
