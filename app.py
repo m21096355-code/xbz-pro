@@ -307,7 +307,7 @@ body{display:flex;align-items:center;justify-content:center;background:var(--bg)
 <div class="login-icon">⚡</div>
 <h1>وارد حساب خود شوید</h1>
 <div class="sub">خوش آمدید، لطفا اطلاعات خود را وارد کنید</div>
-{{% if error %}}<div class="err">{{error}}</div>{{% endif %}}
+{% if error %}<div class="err">{{error}}</div>{% endif %}
 <form method="POST">
 <div class="field"><label>نام کاربری</label><input name="username" placeholder="نام کاربری" required></div>
 <div class="field"><label>گذرواژه</label><input name="password" type="password" placeholder="گذرواژه" required></div>
