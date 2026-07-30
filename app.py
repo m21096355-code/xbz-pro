@@ -341,7 +341,7 @@ body::before{content:'';position:fixed;inset:0;background:
 <h1>XBZ PRO</h1>
 <div class="ver">v""" + VERSION + """</div>
 <div class="desc">پنل مدیریت VPN</div>
-{{% if error %}}<div class="err">⚠️ {{{{error}}}}</div>{{% endif %}}
+{% if error %}<div class="err">⚠️ {{error}}</div>{% endif %}
 <form method="POST">
 <div class="field"><label>نام کاربری</label><input name="username" placeholder="نام کاربری خود را وارد کنید" required autocomplete="username"></div>
 <div class="field"><label>رمز عبور</label><input name="password" type="password" placeholder="رمز عبور خود را وارد کنید" required autocomplete="current-password"></div>
@@ -368,12 +368,12 @@ SETTINGS_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset=
 </style></head><body>
 <div class="nav"><div class="nav-brand"><h2>⚡ <span>XBZ PRO</span></h2><span class="v">v""" + VERSION + """</span></div><div class="nav-links"><a href="/">🏠 داشبورد</a><a href="/logout">🚪 خروج</a></div></div>
 <div class="ct"><div class="card"><h3>⚙️ تنظیمات پنل</h3>
-<form method="POST"><div class="field"><label>نام پنل</label><input name="panel_title" value="{{{title}}}"></div>
-<div class="field"><label>دامنه سرور</label><input name="server_domain" value="{{{domain}}}"></div>
-<div class="field"><label>پورت سرور</label><input name="server_port" value="{{{port}}}"></div>
-<div class="field"><label>مسیر اشتراک</label><input name="sub_path" value="{{{sub_path}}}"></div>
+<form method="POST"><div class="field"><label>نام پنل</label><input name="panel_title" value="{{title}}"></div>
+<div class="field"><label>دامنه سرور</label><input name="server_domain" value="{{domain}}"></div>
+<div class="field"><label>پورت سرور</label><input name="server_port" value="{{port}}"></div>
+<div class="field"><label>مسیر اشتراک</label><input name="sub_path" value="{{sub_path}}"></div>
 <button type="submit" class="btn">💾 ذخیره تنظیمات</button></form>
-<div class="info"><strong>📌 آدرس‌های اشتراک:</strong><br>لینک ساب: <code>{{{domain}}}:{{{port}}}{{{sub_path}}}/{{UUID}}</code><br>صفحه اشتراک: <code>{{{domain}}}:{{{port}}}/share/{{UUID}}</code><br>سازگار با: v2rayNG · Hiddify · Nekobox · V2Box · Streisand</div></div></div></body></html>"""
+<div class="info"><strong>📌 آدرس‌های اشتراک:</strong><br>لینک ساب: <code>{{domain}}:{{port}}{{sub_path}}/{{UUID}}</code><br>صفحه اشتراک: <code>{{domain}}:{{port}}/share/{{UUID}}</code><br>سازگار با: v2rayNG · Hiddify · Nekobox · V2Box · Streisand</div></div></div></body></html>"""
 
 SHARE_HTML = """<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{email}} - {{panel_name}}</title><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet"><style>""" + CSS + """
 .page{max-width:480px;margin:0 auto;padding:20px 16px}
